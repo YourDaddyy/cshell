@@ -1,22 +1,23 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <time.h>
+#include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 #include <errno.h>
 #include <sys/types.h>
 
-/*struct for command and enviornment variables*/
-typedef struct{
-    char* name;
-    char* value;
-}EnvVar;
 
+/** defining my structures for log and Environmental variables **/
 typedef struct{
-    char* name;
+    char *name;
     struct tm time;
     int value;
 }Command;
+
+typedef struct{
+    char *name;
+    char *value;
+}EnvVar;
 
 static Command **commandLog;
 static int commandSize = 0;
@@ -26,13 +27,14 @@ EnvVar **envVar;
 int envVarSize = 0;
 int MAX_ENVVAR_SIZE = 10;
 
+/** Exit CSHELL*/
 void exiter(){
-    printf("Bye!\n");
+    printf("Bye!");
     exit(0);
 }
 
-/*Log Operation*/
-void addLog(Command *cmd){
+/** Helper funcs for log */
+void addlog(Command *cmd){
     if(commandSize == 0){
         MAX_COMMAND_SIZE = 10;
         commandLog = malloc(MAX_COMMAND_SIZE * sizeof(Command*));
@@ -52,15 +54,6 @@ void addLog(Command *cmd){
     commandLog[commandSize++] = cmd;
 }
 
-void freeLog(){
-    for(int i = 0; i < commandSize; i++){
-        free(commandLog[i]->name);
-        free(commandLog[i]);
-    }
-    free(commandLog);
-    commandSize = 0;
-}
-
 int printLog(){
     if(commandSize == 0){
         printf("cshell: log: no commands in log\n");
@@ -73,7 +66,16 @@ int printLog(){
     return 0;
 }
 
-/*EnvVar Operation*/
+void freelog(){
+    for(int i = 0; i < commandSize; i++){
+        free(commandLog[i]->name);
+        free(commandLog[i]);
+    }
+    free(commandLog);
+    commandSize = 0;
+}
+
+/*** Helper funcs for EnvVar ***/
 int addEVar(EnvVar *var){
     if(envVarSize == 0){
         envVar = malloc(MAX_ENVVAR_SIZE * sizeof(EnvVar*));
@@ -94,6 +96,7 @@ int addEVar(EnvVar *var){
     return 0;
 }
 
+// Updates EnvVar's value and return 0
 int updateVar(EnvVar *var){
     for(int i = 0; i < envVarSize; i++){
         if(strcmp(envVar[i]->name, var->name) == 0){
@@ -105,6 +108,7 @@ int updateVar(EnvVar *var){
     return 1;
 }
 
+// Checks if an EnvVar exists, return 1 if it does
 int checkVar(char *name){
     for(int i = 0; i < envVarSize; i++){
         if(strcmp(envVar[i]->name, name) == 0){
@@ -114,7 +118,8 @@ int checkVar(char *name){
     return 0;
 }
 
-char *getVar(char *name){
+// Gets EnvVar value
+char *getEVar(char* name){
     for(int i = 0; i < envVarSize; i++){
         if(strcmp(envVar[i]->name, name) == 0){
             return envVar[i]->value;
@@ -144,11 +149,8 @@ int isEnvVar(char *cmd){
     return 0;
 }
 
-void printoutPromot(){
-    
-}
-
-char* getCmd(){
+/** gets user input */
+char *getCmd(void){
     int len = 0;
     char *buffer = malloc(1024 * sizeof(char));
     int buffer_size = 1024;
@@ -178,14 +180,17 @@ char* getCmd(){
     }
 }
 
-void string_Parser(char *parse, char**token){
+/** tokenizes the input using space, tab and newline */
+void stringparser(char *parse, char **token){
     int i = 0;
-    token[i] = strtok(parse, "\n\t");
-    while(token[i] != NULL && i < 100){
-        token[++i] = strtok(NULL, "\n\t");
+    token[i]= strtok(parse," \n\t");
+    while( token[i] != NULL && i < 100) {
+        i++;
+        token[i] = strtok(NULL, " \n\t");
     }
 }
 
+/** checks if input command is a buildin command */
 int checkBuiltInCmd(char *cmd){
     if(strcmp(cmd, "exit") == 0){
         return 1;
@@ -196,28 +201,30 @@ int checkBuiltInCmd(char *cmd){
     }else if(strcmp(cmd, "theme") == 0){
         return 4;
     }
+    return -1;
 }
 
-/*Print Opertion*/
+/** print cmd **/
 int printer(char **parse){
-    int i = 1;
-    while(parse[i] != NULL){
-        if(isEnvVar(parse[i])){
-            if(checkVar(parse[i])){
-                printf("%s ", getVar(parse[i]));
-            }else{
-                exiter();
+        int i = 1;
+        while (parse[i] != NULL) {
+            if(isEnvVar(parse[i])){ //Format check
+                if(checkVar(parse[i])) {//check if arguement is EnvVar
+                    printf("%s ", getEVar(parse[i]));
+                }
+                else{
+                    exiter();
+                }
+            }else {
+                printf("%s ", parse[i]);
             }
-        }else{
-            printf("%s ", parse[i]);
+            i++;
         }
-        i++;
-    }
-    printf("\n");
-    return 0;
+        printf("\n");
+        return 0;
 }
 
-/*Change Theme Operation*/
+/** Changes the theme of the output */
 int changeTheme(char * color){
     if(color == NULL){
         printf("cshell: theme: no color specified\n");
@@ -235,31 +242,80 @@ int changeTheme(char * color){
     return 0;
 }
 
-
-
-int nonBuildCmd(char **parse){
-    return 0;
+/** execute none build-in commands */
+int nonBuildCmd(char** parse){
+    int pipein[2];
+    int pipeout[2];
+    if(pipe(pipein)<0){
+        printf("Unable to initialize input pipe, Please try again\n");
+        return 1;
+    }
+    if (pipe(pipeout)<0) {
+        printf("Unable to initialize output pipe, Please try again\n");
+        return 1;
+    }
+    close(pipein[0]);
+    if(parse[1]!=NULL) {
+        int i =1;
+        while (parse[i] != NULL) {
+            if (checkEVar(parse[i])) {
+                write(pipein[1], getEVar(parse[i]), strlen(parse[i]));
+            } else {
+                write(pipein[1], parse[i], strlen(parse[i]));
+            }
+            i++;
+        }
+    }
+    close(pipein[1]);
+    pid_t p1 = fork();
+    if(p1 == -1) {
+        printf("Unable to fork a child, Please try again\n");
+        return 1;
+    }else if(p1 == 0) {
+        close(pipein[1]);
+        dup2(pipein[0],STDIN_FILENO);
+        close(pipein[0]);
+        int fail = 0;
+        if (execvp(parse[0], parse) < 0) {
+            fail = 1;
+        }
+        close(pipeout[0]);
+        write(pipeout[1], &fail, sizeof(fail));
+        close(pipeout[1]);
+        exit(0);
+    }else {
+        wait(NULL);
+        int ret;
+        close(pipeout[1]);
+        read(pipeout[0], &ret, sizeof(ret));
+        close(pipeout[0]);
+        if(ret == 1) {
+            return 1;
+        }else{
+            return 0;
+        }
+    }
 }
 
-int main(int argc, char *argv[]){
+int main( int argc, char *argv[]) {
     time_t rnTime;
     int sw;
-    if(argc < 2){
-        printPromot();
-        while(1){
-            char *cmdline, *args[100];
+    if(argc < 2) {
+        printPrompt();
+        while (1) {
+            char *cmdline,*args[100];
             printf("cshell$ ");
             cmdline = getCmd();
-            Command *cmd = malloc(sizeof(Command));
+            Command *cmd = malloc(sizeof (Command));
             time(&rnTime);
             cmd->time = *localtime(&rnTime);
-            string_Parser(cmdline, args);
+            stringparser(cmdline, args);
             cmd->name = strdup(args[0]);
-            if((sw = checkBuiltInCmd(args[0])) > 0){
+            if ((sw = checkBICmd(args[0])) > 0) {
                 if(sw == 1){
                     exiter();
                 }else if(sw == 2){
-                    cmd->value = logPrint();
+                    cmd->value = printLog();
                     break;
                 }else if(sw == 3){
                     cmd->value = printer(args);
@@ -268,7 +324,7 @@ int main(int argc, char *argv[]){
                     cmd->value = changeTheme(args[1]);
                     break;
                 }
-            }else if(isEnvVar(args[0]) && isSetEnvVar(args[0])){
+            } else if (isEnvVar(args[0]) && valEnvVar(args[0])) {
                 EnvVar *var = malloc(sizeof(EnvVar));
                 var->name = strdup(strtok(args[0], "="));
                 var->value = strdup(strtok(NULL, "="));
@@ -277,7 +333,7 @@ int main(int argc, char *argv[]){
                 }else{
                     cmd->value = updateVar(var);
                 }
-            }else{
+            } else {
                 if(!nonBuildCmd(args)){
                     cmd->value = 0;
                 }else{
@@ -285,7 +341,7 @@ int main(int argc, char *argv[]){
                     cmd->value = 1;
                 }
             }
-            addLog(cmd);
+            addlog(cmd);
         }
     }else{
         /*Script mode*/
@@ -298,7 +354,7 @@ int main(int argc, char *argv[]){
             printf("cshell: %s: No such file or directory\n", argv[1]);
             exiter();
         }
-        while(fgets(cmdline, sizeof(cmdline), fp) != NULL){
+        while (fgets(cmdline, sizeof(cmdline),fp)!=NULL){
             Command *cmd = malloc(sizeof(Command));
             time(&rnTime);
             cmd->time = *localtime(&rnTime);
@@ -308,7 +364,7 @@ int main(int argc, char *argv[]){
                 if(sw == 1){
                     exiter();
                 }else if(sw == 2){
-                    cmd->value = logPrint();
+                    cmd->value = printLog();
                     break;
                 }else if(sw == 3){
                     cmd->value = printer(args);
