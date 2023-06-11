@@ -256,18 +256,17 @@ int main(int argc, char *argv[]){
             string_Parser(cmdline, args);
             cmd->name = strdup(args[0]);
             if((sw = checkBuiltInCmd(args[0])) > 0){
-                switch(sw){
-                    case 1:
-                        exiter();
-                    case 2:
-                        cmd->value = logPrint();
-                        break;
-                    case 3:
-                        cmd->value = printer(args);
-                        break;
-                    case 4:
-                        cmd->value = changeTheme(args[1]);
-                        break;
+                if(sw == 1){
+                    exiter();
+                }else if(sw == 2){
+                    cmd->value = logPrint();
+                    break;
+                }else if(sw == 3){
+                    cmd->value = printer(args);
+                    break;
+                }else if(sw == 4){
+                    cmd->value = changeTheme(args[1]);
+                    break;
                 }
             }else if(isEnvVar(args[0]) && isSetEnvVar(args[0])){
                 EnvVar *var = malloc(sizeof(EnvVar));
@@ -291,5 +290,52 @@ int main(int argc, char *argv[]){
     }else{
         /*Script mode*/
         char *args[100], cmdline[1024];
+        if(strstr(argv[1], ".txt") == NULL){
+            strcat(argv[1], ".txt");
+        }
+        FILE *fp = fopen(argv[1], "r");
+        if(fp == NULL){
+            printf("cshell: %s: No such file or directory\n", argv[1]);
+            exiter();
+        }
+        while(fgets(cmdline, sizeof(cmdline), fp) != NULL){
+            Command *cmd = malloc(sizeof(Command));
+            time(&rnTime);
+            cmd->time = *localtime(&rnTime);
+            string_Parser(cmdline, args);
+            cmd->name = strdup(args[0]);
+            if(sw = checkBuiltInCmd(args[0]) > 0){
+                if(sw == 1){
+                    exiter();
+                }else if(sw == 2){
+                    cmd->value = logPrint();
+                    break;
+                }else if(sw == 3){
+                    cmd->value = printer(args);
+                    break;
+                }else if(sw == 4){
+                    cmd->value = changeTheme(args[1]);
+                    break;
+                }
+            }else if(isEnvVar(args[0]) && isSetEnvVar(args[0])){
+                EnvVar *var = malloc(sizeof(EnvVar));
+                var->name = strdup(strtok(args[0], "="));
+                var->value = strdup(strtok(NULL, "="));
+                if(checkVar(var->name) == 0){
+                    cmd->value = addVar(var);
+                }else{
+                    cmd->value = updateVar(var);
+                }
+            }else{
+                if(!nonBuildCmd(args)){
+                    cmd->value = 0;
+                }else{
+                    exiter();
+                    cmd->value = 1;
+                }
+            }
+            addLog(cmd);
+        }
     }
+    return 0;
 }
