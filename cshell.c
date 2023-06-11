@@ -290,5 +290,6 @@ int main(int argc, char *argv[]){
         }
     }else{
         /*Script mode*/
+        char *args[100], cmdline[1024];
     }
 }
