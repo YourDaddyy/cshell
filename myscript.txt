@@ -1,0 +1,10 @@
+$VAR=foo
+ls
+print2 $VAR
+pwd
+
+whoami
+theme red
+log
+exit
+theme blue
