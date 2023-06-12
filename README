@@ -1,0 +1,211 @@
+develop a command-line interpreter or shell supporting the environment variables and history of executed commands. Let us call it cshell. The cshell will support basic shell functionalities.
+
+cshell recognizes the following lines:
+
+● It recognizes lines of the form $<VAR>=<value>
+
+● It recognizes lines of the form <command> <arg0> <arg1> … <argN>, where <command> is a name of built-in command.
+
+cshell will also support the following built-in commands:
+
+● exit, the shell terminates on this Command. This must be implemented for a clean exit of the program.
+
+● log, the shell prints history of executed commands with time and return code
+
+● print, the shell prints argument given to this Command
+
+● theme, the shell changes the color of and output
+
+When cshell takes a non-built-in command (like ls, pwd, whoami), it is executed in the child process, and Command's output is printed.
+
+cshell creates a child process using fork() system call, then cshell waits for the child process to terminate via wait() system call.
+
+Child process executes a non-built-in command using exec() and its analogues.
+
+Hint: You can create a pipe from the parent process to the child, using pipe(). Then you must redirect the standard output (STDOUT_FILENO) and error output (STDERR_FILENO) using dup or dup2 to the pipe, and in the parent process, read from the pipe.
+
+This is needed to control the output of commands or you can use fork() and exec().
+
+So cshell should be able to parse the command name and its arguments. Clearly, the hint is that the command name always goes first, and arguments are separated by space.
+
+Two modes
+
+Our cshell will work in two modes: interactive mode and script mode.
+
+The interactive mode is activated when cshell starts without command line arguments.
+
+Interactive mode is essentially the following loop:
+
+● Print out a prompt
+
+● Read line
+
+● Parse line, and if the line is non-valid, print an error message
+
+● If the line was valid, do what should be done.
+
+Script mode
+
+For script mode, it should start like ./cshell <filename>
+
+The script is a file containing a set of lines e.g.
+
+<command1> <arg0> <arg1> … <argN>
+
+$VAR1=<value1>
+
+…..
+
+<commandK> <arg0> <arg1> … <argN>
+
+…..
+
+In script mode, the shell does the following for each line of the file:
+
+● Read the line of the file
+
+● Parse line, if the line is non-valid, print an error message
+
+● If the line was valid, do what should be done.
+
+● The program must exit cleanly after executing in script mode.
+
+You must submit myscript.txt showing your input for script mode. The last input must be the log command. For example:
+
+Note : For the above myscript.txt, the program must exit cleanly after execution.
+
+Environment variables
+
+The shell will support the inner environment variables. Each environment variable could be stored in a struct like
+
+typedef struct {
+
+char *name;
+
+char *value;
+
+} EnvVar;
+
+● When cshell takes a line of the form $<VAR>=<value>, it should allocate a new EnvVar struct with name=<VAR> and value=<value>.
+
+● All environment variables could be stored in some array.
+
+● EnvVar's name should be unique. If a variable already exists, its value should be updated.
+
+● If some argument takes the form $<VAR>, cshell should look up stored environment variables,find the one with name=<VAR> and substitute argument with environment variable's value. If the corresponding variable does not exist, an error message must be printed.
+
+● A command starting with $var should be immediately followed by =value. (Note: no spaces before and after =)
+
+Parsing of lines of the form $<VAR>=<value> should be simple given that it starts with $ symbol and variable name and value separated by = sign. Parsing of lines of the form <command> <arg0> <arg1> … <argN> gets a little more complicated, shell should check if <arg> starts with $ symbol.
+
+Built-in commands
+
+We mentioned earlier that the shell would support four built-in commands exit, print, theme and log.
+
+1. The cshell must start with cshell$ (no other characters or welcome messages are allowed)
+
+2. The exit command is simple. It just terminates the shell with a message “Bye!”
+
+Note: The output should be exactly the same as shown below (Bye must have exclamation sign, Bye should be case sensitive, and no other messages or symbols allowed)
+
+3. The print command takes arguments <arg0> <arg1> … <argN> and just prints them. Some examples:
+
+If the input is just `print’ with no arguments, then display an error message and show the next prompt.
+
+4. The log command should display a history of executed commands with time and return code. So, shell should store for each executed command a struct like:
+
+typedef struct {
+
+char *name;
+
+struct tm time;
+
+return value;
+
+} Command;
+
+Note: struct tm is defined in <time.h>
+
+So the log command prints an array of such structs.
+
+5. The theme command takes one argument: a name of a colour. And then, the shell using ANSI escape codes changes the colour of its output. Cshell should support three colours (red, green and blue). For any other color, cshell must display a message “unsupported theme” (the message is case sensitive).
+
+Hint on the steps to get started
+
+● Read the man pages for fork(), execvp(), wait (), dup2(), open(), read(), fgets(), write(), exit(), malloc(), realloc(), strtok(), strdup() system calls
+
+● Write a loop to read a line and split it into tokens
+
+● Write a function to parse tokens
+
+● Come up with how to store environment variables and log information
+
+● Write a function to handle built-in commands and to execute external files (execvp)
+
+● Handle reading from file
+
+● Be aware of memory leaks. You can manage time with <time.h> library.
+
+● You cannot use any third-party libraries.
+
+Sample output:
+
+1. Using the ./cshell in an interactive mode:
+
+2. Using the ./cshell script.txt in script mode:
+
+Testcases:
+
+1. Run the ./cshell in an interactive mode:
+
+● Run the built-in commands and verify the output. The commands must include print, theme, log and exit.
+
+● Assign values to any variables in your C program and print the updated values.
+
+● Run non-built-in (pwd, ls) commands and verify the output.
+
+2. Run the ./cshell in script mode:
+
+● Place all the commands in a .txt file and run cshell by passing this file
+
+● The result should be the output of all the commands in the file.
+
+● Place an error case in your file.
+
+Error outputs
+
+
+
+****TO DO*****
+
+Add a new system call
+
+The task is to add a new system call to the kernel, which will perform the following actions:
+
+● accepts a pointer from the user's application to a string of ASCII characters with codes 32-127;
+
+● converts string characters in the range 0x61-0x7A (a-z) to upper case and returns the string
+
+Steps on how to add the system call:
+
+1. Make sure you have the source code of the Linux Kernel
+
+2. Create a folder with your C file and a Makefile in the root directory of the kernel sources
+
+3. Add the system call to the system call table
+
+4. Define the macros associated with each system call
+
+◦ In arch/x86/include/asm/unistd_32.h:
+
+- add the definition for our new system call
+
+- increment the value of the macro NR_SYSCALLS
+
+◦ In arch/x86/include/asm/unistd_64.h add the macro definition
+
+◦ In include/linux/syscalls.h add the prototype of the system call
+
+5. The kernel maintains a Makefile as well. Add your directory in the core-y field
+
+6. Compile the kernel
